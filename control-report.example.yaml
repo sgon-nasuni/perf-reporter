@@ -16,6 +16,8 @@ testsuites:
   - name: spec/spec.py
     protocol: SMB
     testcases:
+      - name: Civil3D
+        heading: "Civil3D"
       - name: Civil3D_Snap
         heading: "CIVIL3D - Snap"
         baseline: "smb_azure-large_civil3d_snap_2622e424-d3fc-4a_2026-10-11-02-25-55"
@@ -28,6 +30,9 @@ testsuites:
       - name: Civil3D_Snap_Ransomware
         heading: "CIVIL3D - Snap Ransomware"
         baseline: "smb_azure-large_civil3d_snap_ransomware_37e1d3e8-75a1-47_2026-10-11-06-09-44"
+
+      - name: Standard_User
+        heading: "Standard User"
       - name: Standard_Snap
         heading: "Standard User - Snap"
         baseline: "smb_azure-large_standard_snap_6405ec4f-ba36-41_2026-10-10-18-52-24"
@@ -40,10 +45,7 @@ testsuites:
       - name: Standard_Snap_Ransomware
         heading: "Standard User - Snap Ransomware"
         baseline: "smb_azure-large_standard_snap_ransomware_af10cc50-3689-4c_2026-10-11-00-33-05"
-      - name: Standard_User
-        heading: "Standard User"
-      - name: Civil3D
-        heading: "Civil3D"
+
       - name: EDA_Snap
         heading: "EDA - Snap"
       - name: VDA_Snap

@@ -34,7 +34,7 @@ export CONFLUENCE_API_TOKEN="your-atlassian-api-token"
 
 ## Configure
 
-Update [`control-report.yaml`](./control-report.yaml) with the Jenkins build, report title, Confluence destination, and test cases. Set `protocol` on each test suite; suites with the same protocol appear together in one page section. See the YAML file for the expected input format and optional baseline settings.
+Update [`control-report.yaml`](./control-report.example.yaml) with the Jenkins build, report title, Confluence destination, and test cases. Set `protocol` on each test suite; suites with the same protocol appear together in one page section. See the YAML file for the expected input format and optional baseline settings.
 
 ## Run
 
@@ -42,7 +42,7 @@ Choose a new output directory and a page title that does not already exist:
 
 ```bash
 python jenkins_to_confluence.py \
-  --config control-report.yaml \
+  --config control-report.example.yaml \
   --output /tmp/performance-report \
   --allow-http
 ```
