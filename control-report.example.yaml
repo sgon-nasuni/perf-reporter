@@ -1,7 +1,6 @@
 build_url: "http://jenkins.perf.nasuni.net:8081/job/PQ_Azure_SMB_Pipeline/40/"
 system: Azure-Large
 capability: Azure-Large
-protocol: SMB
 
 confluence:
   title: "[10.5] Azure Dadsv7 Medium Performance Test Results"
@@ -15,6 +14,7 @@ allow_failed_results: true
 
 testsuites:
   - name: spec/spec.py
+    protocol: SMB
     testcases:
       - name: Civil3D_Snap
         heading: "CIVIL3D - Snap"
@@ -48,3 +48,15 @@ testsuites:
         heading: "EDA - Snap"
       - name: VDA_Snap
         heading: "VDA - Snap"
+
+# Example only: enable this suite when build_url points to a build containing NFS results.
+# Add it under testsuites alongside the SMB suite.
+# - name: spec/spec.py
+#   protocol: NFS
+#   testcases:
+#     - name: Civil3D_Snap
+#       heading: "Civil3D - Snap"
+#     - name: Standard_User
+#       heading: "Standard User"
+#       # Optional: compare this run with an NFS baseline.
+#       # baseline: "YOUR_NFS_BASELINE_UUID"

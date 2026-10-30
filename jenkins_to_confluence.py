@@ -1,5 +1,4 @@
 # Copyright (c) 2010-2026 Nasuni Corporation, all rights reserved.
-
 import argparse
 import base64
 import getpass
@@ -75,44 +74,67 @@ def load_page_data(input_path):
         raise ConfluenceError("The JSON input must include a non-empty title.")
     if len(data["title"]) > 255:
         raise ConfluenceError("The Confluence page title cannot exceed 255 characters.")
-    if not isinstance(data.get("section_heading", "SMB"), str):
-        raise ConfluenceError("section_heading must be text.")
-    if not isinstance(data.get("tables"), list) or not data["tables"]:
-        raise ConfluenceError("The JSON input must contain at least one table.")
+    sections = data.get("sections")
+    if sections is None:
+        if not isinstance(data.get("section_heading", "SMB"), str):
+            raise ConfluenceError("section_heading must be text.")
+        if not isinstance(data.get("tables"), list) or not data["tables"]:
+            raise ConfluenceError("The JSON input must contain at least one table.")
+        sections = [{"heading": data.get("section_heading", "SMB"), "tables": data["tables"]}]
+    elif not isinstance(sections, list) or not sections:
+        raise ConfluenceError("The JSON input must contain at least one section.")
 
     resolved_paths = {}
-    for table_index, table in enumerate(data["tables"]):
-        if not isinstance(table, dict) or not isinstance(table.get("cells"), list) or len(table["cells"]) != 3:
-            raise ConfluenceError(f"Table {table_index + 1} must contain exactly three cells.")
-        for cell_index, cell in enumerate(table["cells"]):
-            if not isinstance(cell, dict):
-                raise ConfluenceError(f"Table {table_index + 1}, cell {cell_index + 1} must be an object.")
-            if not isinstance(cell.get("heading", ""), str):
-                raise ConfluenceError(f"Table {table_index + 1}, cell {cell_index + 1} heading must be text.")
-            caption_lines = cell.get("caption_lines", [])
-            if not isinstance(caption_lines, list) or any(not isinstance(line, str) for line in caption_lines):
-                raise ConfluenceError(
-                    f"Table {table_index + 1}, cell {cell_index + 1} caption_lines must be a list of strings."
-                )
-            image = cell.get("image")
-            if image is not None:
-                if not isinstance(image, str) or not image:
-                    raise ConfluenceError(f"Table {table_index + 1}, cell {cell_index + 1} image must be a path.")
-                display_width = cell.get("display_width", IMAGE_WIDTH)
-                if isinstance(display_width, bool) or not isinstance(display_width, int) or display_width < 1:
+    for section_index, section in enumerate(sections):
+        if not isinstance(section, dict) or not isinstance(section.get("heading"), str):
+            raise ConfluenceError(f"Section {section_index + 1} must have a text heading.")
+        tables = section.get("tables")
+        if not isinstance(tables, list) or not tables:
+            raise ConfluenceError(f"Section {section_index + 1} must contain at least one table.")
+        for table_index, table in enumerate(tables):
+            if not isinstance(table, dict) or not isinstance(table.get("cells"), list) or len(table["cells"]) != 3:
+                raise ConfluenceError(f"Section {section_index + 1}, table {table_index + 1} must have three cells.")
+            for cell_index, cell in enumerate(table["cells"]):
+                if not isinstance(cell, dict):
                     raise ConfluenceError(
-                        f"Table {table_index + 1}, cell {cell_index + 1} display_width must be a positive integer."
+                        f"Section {section_index + 1}, table {table_index + 1}, cell {cell_index + 1} "
+                        "must be an object."
                     )
-                image_path = (input_path.parent / image).resolve()
-                if not image_path.is_file():
-                    raise ConfluenceError(f"Graph image does not exist: {image_path}")
-                if not re.fullmatch(r"[A-Za-z0-9._ -]+", image_path.name):
+                if not isinstance(cell.get("heading", ""), str):
                     raise ConfluenceError(
-                        f"Graph image filename {image_path.name!r} contains unsupported characters; "
-                        "use letters, digits, spaces, dots, underscores, and hyphens."
+                        f"Section {section_index + 1}, table {table_index + 1}, cell {cell_index + 1} "
+                        "heading must be text."
                     )
-                resolved_paths[(table_index, cell_index)] = image_path
+                caption_lines = cell.get("caption_lines", [])
+                if not isinstance(caption_lines, list) or any(not isinstance(line, str) for line in caption_lines):
+                    raise ConfluenceError(
+                        f"Section {section_index + 1}, table {table_index + 1}, cell {cell_index + 1} "
+                        "caption_lines must be a list of strings."
+                    )
+                image = cell.get("image")
+                if image is not None:
+                    if not isinstance(image, str) or not image:
+                        raise ConfluenceError(
+                            f"Section {section_index + 1}, table {table_index + 1}, "
+                            f"cell {cell_index + 1} image must be a path."
+                        )
+                    display_width = cell.get("display_width", IMAGE_WIDTH)
+                    if isinstance(display_width, bool) or not isinstance(display_width, int) or display_width < 1:
+                        raise ConfluenceError(
+                            f"Section {section_index + 1}, table {table_index + 1}, "
+                            f"cell {cell_index + 1} display_width must be a positive integer."
+                        )
+                    image_path = (input_path.parent / image).resolve()
+                    if not image_path.is_file():
+                        raise ConfluenceError(f"Graph image does not exist: {image_path}")
+                    if not re.fullmatch(r"[A-Za-z0-9._ -]+", image_path.name):
+                        raise ConfluenceError(
+                            f"Graph image filename {image_path.name!r} contains unsupported characters; "
+                            "use letters, digits, spaces, dots, underscores, and hyphens."
+                        )
+                    resolved_paths[(section_index, table_index, cell_index)] = image_path
 
+    data["_sections"] = sections
     data["_image_paths"] = resolved_paths
     return data
 
@@ -129,46 +151,50 @@ def validate_image_names(data):
 
 
 def storage_body(data, attachment_names):
-    table_markup = []
+    section_markup = []
     image_paths = data["_image_paths"]
-    for table_index, table in enumerate(data["tables"]):
-        columns = "".join(f'<col style="width: {width}px;" />' for width in CELL_WIDTHS)
-        headings = "".join(
-            f"<th><p><strong>{html.escape(cell.get('heading', ''))}</strong></p></th>" for cell in table["cells"]
-        )
+    for section_index, section in enumerate(data["_sections"]):
+        table_markup = []
+        for table_index, table in enumerate(section["tables"]):
+            columns = "".join(f'<col style="width: {width}px;" />' for width in CELL_WIDTHS)
+            headings = "".join(
+                f"<th><p><strong>{html.escape(cell.get('heading', ''))}</strong></p></th>" for cell in table["cells"]
+            )
 
-        image_cells = []
-        caption_cells = []
-        for cell_index, cell in enumerate(table["cells"]):
-            image_path = image_paths.get((table_index, cell_index))
-            if image_path is None:
-                image_markup = "<p></p>"
-            else:
-                attachment_name = attachment_names.get(image_path)
-                if attachment_name is None:
-                    attachment_name = image_path.name
-                image_markup = (
-                    f'<ac:image ac:align="center" ac:width="{IMAGE_WIDTH}">'
-                    f'<ri:attachment ri:filename="{html.escape(attachment_name, quote=True)}" />'
-                    "</ac:image><p></p>"
-                )
-            image_cells.append(f"<td>{image_markup}</td>")
+            image_cells = []
+            caption_cells = []
+            for cell_index, cell in enumerate(table["cells"]):
+                image_path = image_paths.get((section_index, table_index, cell_index))
+                if image_path is None:
+                    image_markup = "<p></p>"
+                else:
+                    attachment_name = attachment_names.get(image_path)
+                    if attachment_name is None:
+                        attachment_name = image_path.name
+                    image_markup = (
+                        f'<ac:image ac:align="center" ac:width="{IMAGE_WIDTH}">'
+                        f'<ri:attachment ri:filename="{html.escape(attachment_name, quote=True)}" />'
+                        "</ac:image><p></p>"
+                    )
+                image_cells.append(f"<td>{image_markup}</td>")
 
-            caption = "<br />".join(html.escape(line) for line in cell.get("caption_lines", []))
-            caption_cells.append(f"<td><p>{caption}</p></td>")
+                caption = "<br />".join(html.escape(line) for line in cell.get("caption_lines", []))
+                caption_cells.append(f"<td><p>{caption}</p></td>")
 
-        table_markup.append(
-            "<table>"
-            f"<colgroup>{columns}</colgroup>"
-            f"<thead><tr>{headings}</tr></thead>"
-            "<tbody>"
-            f"<tr>{''.join(image_cells)}</tr>"
-            f"<tr>{''.join(caption_cells)}</tr>"
-            "</tbody></table>"
-        )
+            table_markup.append(
+                "<table>"
+                f"<colgroup>{columns}</colgroup>"
+                f"<thead><tr>{headings}</tr></thead>"
+                "<tbody>"
+                f"<tr>{''.join(image_cells)}</tr>"
+                f"<tr>{''.join(caption_cells)}</tr>"
+                "</tbody></table>"
+            )
 
-    heading = html.escape(data.get("section_heading", "SMB"))
-    return f"<p><strong>{heading}</strong></p>" + "".join(table_markup) + "<p></p><p></p>"
+        section_heading = html.escape(section["heading"])
+        section_markup.append(f"<p><strong>{section_heading}</strong></p>" + "".join(table_markup))
+
+    return "".join(section_markup) + "<p></p><p></p>"
 
 
 class ConfluenceClient:
@@ -631,8 +657,10 @@ def load_config(path):
         ),
         "report",
     )
-    for field in ("build_url", "system", "protocol"):
+    for field in ("build_url", "system"):
         require_text(config.get(field), field)
+    if "protocol" in config:
+        require_text(config["protocol"], "protocol")
     config["capability"] = require_text(config.get("capability", config["system"]), "capability")
     parsed = urlsplit(config["build_url"])
     if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
@@ -657,8 +685,9 @@ def load_config(path):
         raise PocError("testsuites must be a non-empty list.")
     cases = []
     for suite in suites:
-        check_keys(suite, ("name", "testcases"), "testsuite")
+        check_keys(suite, ("name", "protocol", "testcases"), "testsuite")
         require_text(suite.get("name"), "testsuite.name")
+        protocol = require_text(suite.get("protocol", config.get("protocol")), "testsuite.protocol")
         if not isinstance(suite.get("testcases"), list) or not suite["testcases"]:
             raise PocError("Each testsuite needs a non-empty testcases list.")
         for case in suite["testcases"]:
@@ -676,6 +705,7 @@ def load_config(path):
                 {
                     **case,
                     "suite": suite["name"],
+                    "protocol": protocol,
                     "axes": case.get("axes", graphing.get("axes", "ach_rate_vs_lat")),
                     "heading": case.get("heading", case["name"].replace("_", " ")),
                 }
@@ -691,7 +721,7 @@ def resolve_cases(config, executions):
         if "execution_name" in case:
             expected = case["execution_name"]
         elif case["suite"] == "spec/spec.py":
-            expected = f"{config['protocol']}_{config['capability']}_{case['name']}"
+            expected = f"{case['protocol']}_{config['capability']}_{case['name']}"
         else:
             expected = case["name"]
         matches = [execution for execution in executions if execution.get("testcase", "").upper() == expected.upper()]
@@ -781,7 +811,7 @@ def prepare_report(client, config, output, workers=4, timeout=1800, poll_interva
                 axes=case["axes"],
                 current_uuid=case["uuid"],
                 baseline_uuid=case["baseline"],
-                title=f"{config['protocol']} {case['heading']} - Current vs Baseline",
+                title=f"{case['protocol']} {case['heading']} - Current vs Baseline",
                 description=f"Performance report from {config['build_url']}; test {case['runtime_testcase']}.",
                 timeout=timeout,
                 poll_interval=poll_interval,
@@ -831,12 +861,16 @@ def prepare_report(client, config, output, workers=4, timeout=1800, poll_interva
         output / "resolved-manifest.json",
         {"build_url": config["build_url"], "build_result": metadata["result"], "executions": results},
     )
-    cells = []
-    for index, case in enumerate(results):
+    protocol_sections = {}
+    for case in results:
         captions = [case["uuid"]]
         if case.get("baseline"):
             captions.append("Baseline: " + case["baseline"])
-        cells.append(
+        section = protocol_sections.setdefault(
+            case["protocol"].casefold(),
+            {"heading": case["protocol"], "cells": []},
+        )
+        section["cells"].append(
             {
                 "heading": case["heading"],
                 "image": case["graph"],
@@ -844,13 +878,21 @@ def prepare_report(client, config, output, workers=4, timeout=1800, poll_interva
                 "caption_lines": captions,
             }
         )
-    while len(cells) % 3:
-        cells.append({"heading": "", "image": None, "caption_lines": []})
+    sections = []
+    for section in protocol_sections.values():
+        cells = section["cells"]
+        while len(cells) % 3:
+            cells.append({"heading": "", "image": None, "caption_lines": []})
+        sections.append(
+            {
+                "heading": section["heading"],
+                "tables": [{"cells": cells[index : index + 3]} for index in range(0, len(cells), 3)],
+            }
+        )
     page = {
         "title": config["confluence"]["title"],
         "destination_url": config["confluence"]["destination_url"],
-        "section_heading": config["protocol"],
-        "tables": [{"cells": cells[index : index + 3]} for index in range(0, len(cells), 3)],
+        "sections": sections,
     }
     save_json(output / "page.json", page)
     data = load_page_data(output / "page.json")
