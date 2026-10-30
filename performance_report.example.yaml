@@ -1,0 +1,50 @@
+build_url: "http://jenkins.perf.nasuni.net:8081/job/PQ_Azure_SMB_Pipeline/40/"
+system: Azure-Large
+capability: Azure-Large
+protocol: SMB
+
+confluence:
+  title: "[10.5] Azure Dadsv7 Medium Performance Test Results"
+  destination_url: "https://nasuni.atlassian.net/wiki/spaces/ENG/folder/6764691515/Azure+Dadsv7+Performance+Evaluation"
+
+graphing:
+  job_url: "http://jenkins.perf.nasuni.net:8081/job/Automation_Graphing/"
+  axes: ach_rate_vs_lat
+
+allow_failed_results: true
+
+testsuites:
+  - name: spec/spec.py
+    testcases:
+      - name: Civil3D_Snap
+        heading: "CIVIL3D - Snap"
+        baseline: "smb_azure-large_civil3d_snap_2622e424-d3fc-4a_2026-10-11-02-25-55"
+      - name: Civil3D_Snap_Antivirus
+        heading: "Civil3D - Snap Antivirus"
+        baseline: "smb_azure-large_civil3d_snap_antivirus_e41a58ec-b7f5-47_2026-10-11-03-40-25"
+      - name: Civil3D_Snap_Auditing
+        heading: "Civil3D - Snap Auditing"
+        baseline: "smb_azure-large_civil3d_snap_auditing_02642ff3-bf4d-47_2026-10-11-04-54-49"
+      - name: Civil3D_Snap_Ransomware
+        heading: "CIVIL3D - Snap Ransomware"
+        baseline: "smb_azure-large_civil3d_snap_ransomware_37e1d3e8-75a1-47_2026-10-11-06-09-44"
+      - name: Standard_Snap
+        heading: "Standard User - Snap"
+        baseline: "smb_azure-large_standard_snap_6405ec4f-ba36-41_2026-10-10-18-52-24"
+      - name: Standard_Snap_Antivirus
+        heading: "Standard User - Snap Antivirus"
+        baseline: "smb_azure-large_standard_snap_antivirus_e41b973d-1215-46_2026-10-10-20-47-01"
+      - name: Standard_Snap_Auditing
+        heading: "Standard User - Snap Auditing"
+        baseline: "smb_azure-large_standard_snap_auditing_ae3b0cd2-f006-47_2026-10-10-22-40-19"
+      - name: Standard_Snap_Ransomware
+        heading: "Standard User - Snap Ransomware"
+        baseline: "smb_azure-large_standard_snap_ransomware_af10cc50-3689-4c_2026-10-11-00-33-05"
+      - name: Standard_User
+        heading: "Standard User"
+      - name: Civil3D
+        heading: "Civil3D"
+      - name: EDA_Snap
+        heading: "EDA - Snap"
+      - name: VDA_Snap
+        heading: "VDA - Snap"
